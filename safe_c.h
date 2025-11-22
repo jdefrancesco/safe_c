@@ -1,18 +1,23 @@
+
+/**
+ * @file safe_c.h
+ * @brief Defensive C utility helpers aligned with CERT C guidelines.
+ *
+ * This header centralizes overflow-aware allocation wrappers, string and memory
+ * helpers, and lightweight logging primitives intended to make defensive coding
+ * patterns ergonomic in C projects.  It exposes:
+ * - Safe allocation utilities (`safe_malloc`, `safe_calloc`, `safe_realloc`) with
+ *   multiplication overflow checks and zero-length guards.
+ * - String helpers (`safe_strcpy`, `safe_strncpy`, `safe_strcat`, `safe_strnlen`,
+ *   `safe_strdup`) that validate inputs and provide truncation diagnostics.
+ * - Memory utilities (`safe_memset`, `safe_memcpy`) with explicit bounds checks.
+ * - A truncation-aware `safe_snprintf` wrapper.
+ * - A `safe_bounds_check` routine for offset/length validation.
+ * - Logging macros with optional color highlighting and poison-aware free macros.
+ */
 #ifndef __SAFE_C_H
 #define __SAFE_C_H
 
-/*
-    safe_c.h — Defensive C utilities (CERT C aligned)
-
-    Features:
-    - Overflow-checked allocation (safe_malloc/calloc/realloc)
-    - Safe string utilities (strcpy/strncpy/strcat/strnlen/strdup)
-    - Safe memory ops (memcpy/memset) with bounds checking
-    - Truncation-aware snprintf wrapper
-    - Bounds checking helper
-    - SAFE_FREE / SAFE_FREE_POISON macros
-    - Simple colored logging macros
-*/
 
 #include <stddef.h>
 #include <stdint.h>
@@ -21,6 +26,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <errno.h>
+#include <stdbool.h>
 
 
 #ifndef SAFE_C_POISON_VALUE
@@ -46,7 +52,7 @@
 
 // Basic logging with VT100 color codes.
 #if SAFE_C_ENABLE_COLOR
-    #define SVAFE_C_COLOR_RED    "\033[31m"
+    #define SAFE_C_COLOR_RED    "\033[31m"
     #define SAFE_C_COLOR_YELLOW "\033[33m"
     #define SAFE_C_COLOR_GREEN  "\033[32m"
     #define SAFE_C_COLOR_BLUE   "\033[34m"
@@ -114,20 +120,54 @@ safe_c_log_debug(const char *fmt, ...) {
 #define SAFE_C_LOG_INFO(...)  safe_c_log_info(__VA_ARGS__)
 #define SAFE_C_LOG_DEBUG(...) safe_c_log_debug(__VA_ARGS__)
 
-// Overflow checks.
-//
-static inline int safe_mul_overflow(size_t a, size_t b, size_t *out) {
-    if (a != 0 && b > SIZE_MAX / a) {
-        SAFE_C_LOG_ERROR("safe_mul_overflow: overflow (%zu * %zu)", a, b);
-        return 1;
+
+/**
+ * @brief Safely multiplies two size_t operands and stores the result.
+ *
+ * Computes the product of @p a and @p b, storing it in @p result when the
+ * multiplication does not overflow. If the output pointer is null, or an
+ * overflow would occur, the function logs an error, sets @c errno (to
+ * @c EINVAL for a null pointer or @c EOVERFLOW for arithmetic overflow), and
+ * returns @c false. On success, the product is written to @p result and the
+ * function returns @c true.
+ *
+ * @param a      First multiplicand.
+ * @param b      Second multiplicand.
+ * @param result Pointer to the storage location for the product.
+ *
+ * @retval true  The multiplication completed without overflow.
+ * @retval false The result pointer was null or an overflow was detected.
+ */
+static inline bool
+safe_umul(size_t a, size_t b, size_t *result)
+{
+    if (result == NULL) {
+        SAFE_C_LOG_ERROR("safe_umul: result pointer is NULL");
+        errno = EINVAL;
+#if SAFE_C_ABORT_ON_ERROR
+        abort();
+#endif
+        return false;
     }
-    *out = a * b;
-    return 0;
+    if ((a != 0) && (b > (SIZE_MAX / a))) {
+        SAFE_C_LOG_ERROR("safe_umul: overflow (%zu * %zu)", a, b);
+        errno = EOVERFLOW;
+#if SAFE_C_ABORT_ON_ERROR
+        abort();
+#endif
+        return false;
+    }
+    *result = a * b;
+    return true;
 }
 
-/* ============================================================
-   Safe FREE macros
-   ============================================================ */
+// Backward-compatible alias.
+static inline bool
+safe_mul_overflow(size_t a, size_t b, size_t *result)
+{
+    return safe_umul(a, b, result);
+}
+
 
 #define SAFE_FREE(ptr) do {                     \
     if ((ptr) != NULL) {                        \
@@ -136,22 +176,33 @@ static inline int safe_mul_overflow(size_t a, size_t b, size_t *out) {
     }                                           \
 } while (0)
 
-#define SAFE_FREE_POISON(ptr) do {                      \
-    if ((ptr) != NULL) {                                \
-        free(ptr);                                      \
-        if (SAFE_C_ENABLE_POISON) {                     \
-            (ptr) = (void*)(uintptr_t)SAFE_C_POISON_VALUE; \
-        } else {                                        \
-            (ptr) = NULL;                               \
-        }                                               \
-    }                                                   \
+#define SAFE_FREE_POISON(ptr) do {                          \
+    if ((ptr) != NULL) {                                    \
+        free(ptr);                                          \
+        if (SAFE_C_ENABLE_POISON) {                         \
+            (ptr) = (void*)(uintptr_t)SAFE_C_POISON_VALUE;  \
+        } else {                                            \
+            (ptr) = NULL;                                   \
+        }                                                   \
+    }                                                       \
 } while (0)
 
-/* ============================================================
-   Allocation
-   ============================================================ */
 
-static inline void* safe_malloc(size_t n) {
+/**
+ * @brief Allocates memory with a non-zero size guard.
+ *
+ * Requests a block of @p n bytes using @c malloc after rejecting zero-length
+ * allocations. When @p n is zero the function logs an error, sets @c errno to
+ * @c EINVAL, and returns @c NULL. On allocation failure the underlying
+ * allocator is expected to set @c errno (typically to @c ENOMEM).
+ *
+ * @param n Number of bytes to allocate.
+ *
+ * @return Pointer to the allocated block on success; otherwise @c NULL.
+ */
+static inline void *
+safe_malloc(size_t n)
+{
     if (n == 0) {
         SAFE_C_LOG_WARN("safe_malloc: requested size 0");
         errno = EINVAL;
@@ -167,9 +218,23 @@ static inline void* safe_malloc(size_t n) {
     return p;
 }
 
-static inline void* safe_calloc(size_t count, size_t size) {
+/**
+ * @brief Allocates zero-initialized memory with overflow detection.
+ *
+ * Multiplies @p count and @p size using ::safe_umul. When the multiplication
+ * overflows or the total size would be zero, the function logs an error, sets
+ * @c errno to @c EOVERFLOW, and returns @c NULL.
+ *
+ * @param count Number of elements to allocate.
+ * @param size  Size of each element in bytes.
+ *
+ * @return Pointer to the zero-initialized block on success; otherwise @c NULL.
+ */
+static inline void*
+safe_calloc(size_t count, size_t size)
+{
     size_t total;
-    if (safe_mul_overflow(count, size, &total) || total == 0) {
+    if (safe_umul(count, size, &total) == false || total == 0) {
         SAFE_C_LOG_ERROR("safe_calloc: overflow or zero (%zu * %zu)", count, size);
         errno = EOVERFLOW;
 #if SAFE_C_ABORT_ON_ERROR
@@ -184,9 +249,23 @@ static inline void* safe_calloc(size_t count, size_t size) {
     return p;
 }
 
+/**
+ * @brief Reallocates memory with overflow and zero-size checks.
+ *
+ * Computes @p count * @p size via ::safe_umul before calling @c realloc. When
+ * the multiplication overflows or yields zero, the function logs an error,
+ * sets @c errno to @c EOVERFLOW, and returns @c NULL. On allocator failure the
+ * return value is @c NULL and @c errno is left to the C library.
+ *
+ * @param ptr   Existing allocation or @c NULL.
+ * @param count Number of elements requested.
+ * @param size  Size of each element in bytes.
+ *
+ * @return Pointer to the resized block on success; otherwise @c NULL.
+ */
 static inline void* safe_realloc(void *ptr, size_t count, size_t size) {
     size_t total;
-    if (safe_mul_overflow(count, size, &total) || total == 0) {
+    if (safe_umul(count, size, &total) == false || total == 0) {
         SAFE_C_LOG_ERROR("safe_realloc: overflow or zero (%zu * %zu)", count, size);
         errno = EOVERFLOW;
 #if SAFE_C_ABORT_ON_ERROR
@@ -241,6 +320,19 @@ static inline int safe_strncpy(char *dst, size_t dstsz, const char *src, size_t 
     return 1;
 }
 
+
+
+static inline size_t 
+safe_strnlen(const char *s, size_t maxlen) 
+{
+    if (!s || maxlen == 0) {
+        return 0;
+    }
+
+    const char *end = memchr(s, '\0', maxlen);
+    return end ? (size_t)(end - s) : maxlen;
+}
+
 static inline int safe_strcat(char *dst, size_t dstsz, const char *src) {
     if (!dst || !src || dstsz == 0) {
         SAFE_C_LOG_ERROR("safe_strcat: invalid args dst=%p src=%p dstsz=%zu",
@@ -269,19 +361,22 @@ static inline int safe_strcat(char *dst, size_t dstsz, const char *src) {
     return 1;
 }
 
-/*
-    safe_strnlen: CERT-compliant length with max bound
-*/
-static inline size_t safe_strnlen(const char *s, size_t maxlen) {
-    if (!s || maxlen == 0) return 0;
-    const char *end = memchr(s, '\0', maxlen);
-    return end ? (size_t)(end - s) : maxlen;
-}
 
-/*
-    safe_strdup: uses safe_malloc and overflow protection
-*/
-static inline char* safe_strdup(const char *src) {
+
+/**
+ * @brief Duplicates a string with argument validation.
+ *
+ * Uses ::safe_malloc to allocate space for a copy of @p src. When @p src is
+ * @c NULL the function logs an error, sets @c errno to @c EINVAL, and returns
+ * @c NULL.
+ *
+ * @param src Null-terminated string to duplicate.
+ *
+ * @return Newly allocated duplicate on success; otherwise @c NULL.
+ */
+static inline char* 
+safe_strdup(const char *src) 
+{
     if (!src) {
         SAFE_C_LOG_ERROR("safe_strdup: src is NULL");
         errno = EINVAL;
@@ -297,7 +392,9 @@ static inline char* safe_strdup(const char *src) {
 /*
     safe_memset: verifies bounds, prevents UB on NULL or too-large n
 */
-static inline int safe_memset(void *dst, size_t dstsz, int value, size_t n) {
+static inline int 
+safe_memset(void *dst, size_t dstsz, int value, size_t n) 
+{
     if (!dst || n > dstsz) {
         SAFE_C_LOG_ERROR("safe_memset: invalid args dst=%p dstsz=%zu n=%zu",
                          dst, dstsz, n);
@@ -310,7 +407,8 @@ static inline int safe_memset(void *dst, size_t dstsz, int value, size_t n) {
 /*
     safe_memcpy: validates sizes
 */
-static inline int safe_memcpy(void *dst, size_t dstsz, const void *src, size_t srcsz) {
+static inline int 
+safe_memcpy(void *dst, size_t dstsz, const void *src, size_t srcsz) {
     if (!dst || !src || dstsz < srcsz) {
         SAFE_C_LOG_ERROR("safe_memcpy: invalid args dst=%p src=%p dstsz=%zu srcsz=%zu",
                          dst, src, dstsz, srcsz);
@@ -344,9 +442,6 @@ static inline int safe_snprintf(char *dst, size_t dstsz, const char *fmt, ...) {
     return 0;
 }
 
-/* ============================================================
-   Bounds helper
-   ============================================================ */
 
 static inline int safe_bounds_check(size_t offset, size_t size, size_t buf_size) {
     if (offset > buf_size) {

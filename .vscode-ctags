@@ -1,0 +1,42 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+SAFE_C_ABORT_ON_ERROR	safe_c.h	/^    #define SAFE_C_ABORT_ON_ERROR /;"	d
+SAFE_C_COLOR_BLUE	safe_c.h	/^    #define SAFE_C_COLOR_BLUE /;"	d
+SAFE_C_COLOR_GREEN	safe_c.h	/^    #define SAFE_C_COLOR_GREEN /;"	d
+SAFE_C_COLOR_RED	safe_c.h	/^    #define SAFE_C_COLOR_RED /;"	d
+SAFE_C_COLOR_RESET	safe_c.h	/^    #define SAFE_C_COLOR_RESET /;"	d
+SAFE_C_COLOR_YELLOW	safe_c.h	/^    #define SAFE_C_COLOR_YELLOW /;"	d
+SAFE_C_ENABLE_COLOR	safe_c.h	/^    #define SAFE_C_ENABLE_COLOR /;"	d
+SAFE_C_ENABLE_LOGGING	safe_c.h	/^    #define SAFE_C_ENABLE_LOGGING /;"	d
+SAFE_C_ENABLE_POISON	safe_c.h	/^    #define SAFE_C_ENABLE_POISON /;"	d
+SAFE_C_LOG_DEBUG	safe_c.h	/^#define SAFE_C_LOG_DEBUG(/;"	d
+SAFE_C_LOG_ERROR	safe_c.h	/^#define SAFE_C_LOG_ERROR(/;"	d
+SAFE_C_LOG_INFO	safe_c.h	/^#define SAFE_C_LOG_INFO(/;"	d
+SAFE_C_LOG_WARN	safe_c.h	/^#define SAFE_C_LOG_WARN(/;"	d
+SAFE_C_POISON_VALUE	safe_c.h	/^    #define SAFE_C_POISON_VALUE /;"	d
+SAFE_FREE	safe_c.h	/^#define SAFE_FREE(/;"	d
+SAFE_FREE_POISON	safe_c.h	/^#define SAFE_FREE_POISON(/;"	d
+SVAFE_C_COLOR_RED	safe_c.h	/^    #define SVAFE_C_COLOR_RED /;"	d
+__SAFE_C_H	safe_c.h	/^#define __SAFE_C_H$/;"	d
+safe_bounds_check	safe_c.h	/^static inline int safe_bounds_check(size_t offset, size_t size, size_t buf_size) {$/;"	f
+safe_c_log_debug	safe_c.h	/^safe_c_log_debug(const char *fmt, ...) {$/;"	f
+safe_c_log_error	safe_c.h	/^safe_c_log_error(const char *fmt, ...) {$/;"	f
+safe_c_log_impl	safe_c.h	/^safe_c_log_impl( const char *level, const char *color,$/;"	f
+safe_c_log_info	safe_c.h	/^safe_c_log_info(const char *fmt, ...) {$/;"	f
+safe_c_log_warn	safe_c.h	/^safe_c_log_warn(const char *fmt, ...) {$/;"	f
+safe_calloc	safe_c.h	/^safe_calloc(size_t count, size_t size)$/;"	f
+safe_malloc	safe_c.h	/^safe_malloc(size_t n)$/;"	f
+safe_memcpy	safe_c.h	/^static inline int safe_memcpy(void *dst, size_t dstsz, const void *src, size_t srcsz) {$/;"	f
+safe_memset	safe_c.h	/^static inline int safe_memset(void *dst, size_t dstsz, int value, size_t n) {$/;"	f
+safe_realloc	safe_c.h	/^static inline void* safe_realloc(void *ptr, size_t count, size_t size) {$/;"	f
+safe_snprintf	safe_c.h	/^static inline int safe_snprintf(char *dst, size_t dstsz, const char *fmt, ...) {$/;"	f
+safe_strcat	safe_c.h	/^static inline int safe_strcat(char *dst, size_t dstsz, const char *src) {$/;"	f
+safe_strcpy	safe_c.h	/^static inline int safe_strcpy(char *dst, size_t dstsz, const char *src) {$/;"	f
+safe_strdup	safe_c.h	/^static inline char* safe_strdup(const char *src) {$/;"	f
+safe_strncpy	safe_c.h	/^static inline int safe_strncpy(char *dst, size_t dstsz, const char *src, size_t n) {$/;"	f
+safe_strnlen	safe_c.h	/^static inline size_t safe_strnlen(const char *s, size_t maxlen) {$/;"	f
+safe_umul	safe_c.h	/^safe_umul(size_t a, size_t b, size_t *result)$/;"	f
