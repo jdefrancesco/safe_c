@@ -9,6 +9,10 @@
 # Build directories
 build/
 dist/
+findings/*
+findings_*/
+
+*.dSYM
 
 # C intermediates
 *.o
