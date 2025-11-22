@@ -1,0 +1,20 @@
+# macOS artifacts
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor metadata
+.vscode-ctags
+
+# Build directories
+build/
+dist/
+
+# C intermediates
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+*.exe

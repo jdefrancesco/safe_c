@@ -1,7 +1,3 @@
-###############################
-# AFL++ Makefile (macOS ARM64)
-###############################
-
 CC     = afl-clang-fast
 CFLAGS = -O3 -g -std=gnu17 -Wall \
        -fsanitize=address,undefined \
@@ -18,26 +14,20 @@ FUZZERS = \
 
 all: $(FUZZERS)
 
-###########################################
-# Build fuzzers using AFL instrumentation
-###########################################
+
 
 fuzz_%: fuzz_%.c safe_c.h
 	$(CC) $(CFLAGS) $< -o $@
 
 
-###########################################
-# Corpus generation
-###########################################
+
 corpus:
 	mkdir -p corpus
 	echo "seed" > corpus/seed1
 	echo "AAAA" > corpus/seed2
 	echo "12345678" > corpus/seed3
 
-###########################################
-# Cleanup
-###########################################
+
 clean:
 	rm -f $(FUZZERS)
 	rm -rf *.dSYM
