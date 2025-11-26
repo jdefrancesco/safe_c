@@ -14,6 +14,8 @@
  * - A truncation-aware `safe_snprintf` wrapper.
  * - A `safe_bounds_check` routine for offset/length validation.
  * - Logging macros with optional color highlighting and poison-aware free macros.
+ *
+ * @author J. DeFrancesco
  */
 #ifndef __SAFE_C_H
 #define __SAFE_C_H
@@ -83,7 +85,8 @@ safe_c_log_impl( const char *level, const char *color,
 }
 
 static inline void
-safe_c_log_error(const char *fmt, ...) {
+safe_c_log_error(const char *fmt, ...)
+{
     va_list ap;
     va_start(ap, fmt);
     safe_c_log_impl("ERROR", SAFE_C_COLOR_RED, fmt, ap);
@@ -91,7 +94,8 @@ safe_c_log_error(const char *fmt, ...) {
 }
 
 static inline void
-safe_c_log_warn(const char *fmt, ...) {
+safe_c_log_warn(const char *fmt, ...)
+{
     va_list ap;
     va_start(ap, fmt);
     safe_c_log_impl("WARN", SAFE_C_COLOR_YELLOW, fmt, ap);
@@ -99,7 +103,8 @@ safe_c_log_warn(const char *fmt, ...) {
 }
 
 static inline void
-safe_c_log_info(const char *fmt, ...) {
+safe_c_log_info(const char *fmt, ...)
+{
     va_list ap;
     va_start(ap, fmt);
     safe_c_log_impl("INFO", SAFE_C_COLOR_GREEN, fmt, ap);
@@ -107,7 +112,8 @@ safe_c_log_info(const char *fmt, ...) {
 }
 
 static inline void
-safe_c_log_debug(const char *fmt, ...) {
+safe_c_log_debug(const char *fmt, ...)
+{
     va_list ap;
     va_start(ap, fmt);
     safe_c_log_impl("DEBUG", SAFE_C_COLOR_BLUE, fmt, ap);
@@ -230,7 +236,7 @@ safe_malloc(size_t n)
  *
  * @return Pointer to the zero-initialized block on success; otherwise @c NULL.
  */
-static inline void*
+static inline void *
 safe_calloc(size_t count, size_t size)
 {
     size_t total;
@@ -263,7 +269,8 @@ safe_calloc(size_t count, size_t size)
  *
  * @return Pointer to the resized block on success; otherwise @c NULL.
  */
-static inline void* safe_realloc(void *ptr, size_t count, size_t size) {
+static inline void* safe_realloc(void *ptr, size_t count, size_t size)
+{
     size_t total;
     if (safe_umul(count, size, &total) == false || total == 0) {
         SAFE_C_LOG_ERROR("safe_realloc: overflow or zero (%zu * %zu)", count, size);
@@ -280,11 +287,10 @@ static inline void* safe_realloc(void *ptr, size_t count, size_t size) {
     return p;
 }
 
-/* ============================================================
-   Safe String Utils
-   ============================================================ */
 
-static inline int safe_strcpy(char *dst, size_t dstsz, const char *src) {
+static inline int
+safe_strcpy(char *dst, size_t dstsz, const char *src)
+{
     if (!dst || !src || dstsz == 0) {
         SAFE_C_LOG_ERROR("safe_strcpy: invalid args dst=%p src=%p dstsz=%zu",
                          (void*)dst, (const void*)src, dstsz);
@@ -302,7 +308,8 @@ static inline int safe_strcpy(char *dst, size_t dstsz, const char *src) {
     return 1;
 }
 
-static inline int safe_strncpy(char *dst, size_t dstsz, const char *src, size_t n) {
+static inline int
+safe_strncpy(char *dst, size_t dstsz, const char *src, size_t n) {
     if (!dst || !src || dstsz == 0) {
         SAFE_C_LOG_ERROR("safe_strncpy: invalid args dst=%p src=%p dstsz=%zu",
                          (void*)dst, (const void*)src, dstsz);
@@ -322,8 +329,8 @@ static inline int safe_strncpy(char *dst, size_t dstsz, const char *src, size_t 
 
 
 
-static inline size_t 
-safe_strnlen(const char *s, size_t maxlen) 
+static inline size_t
+safe_strnlen(const char *s, size_t maxlen)
 {
     if (!s || maxlen == 0) {
         return 0;
@@ -333,7 +340,9 @@ safe_strnlen(const char *s, size_t maxlen)
     return end ? (size_t)(end - s) : maxlen;
 }
 
-static inline int safe_strcat(char *dst, size_t dstsz, const char *src) {
+static inline int
+safe_strcat(char *dst, size_t dstsz, const char *src)
+{
     if (!dst || !src || dstsz == 0) {
         SAFE_C_LOG_ERROR("safe_strcat: invalid args dst=%p src=%p dstsz=%zu",
                          (void*)dst, (const void*)src, dstsz);
@@ -374,8 +383,8 @@ static inline int safe_strcat(char *dst, size_t dstsz, const char *src) {
  *
  * @return Newly allocated duplicate on success; otherwise @c NULL.
  */
-static inline char* 
-safe_strdup(const char *src) 
+static inline char*
+safe_strdup(const char *src)
 {
     if (!src) {
         SAFE_C_LOG_ERROR("safe_strdup: src is NULL");
@@ -392,8 +401,8 @@ safe_strdup(const char *src)
 /*
     safe_memset: verifies bounds, prevents UB on NULL or too-large n
 */
-static inline int 
-safe_memset(void *dst, size_t dstsz, int value, size_t n) 
+static inline int
+safe_memset(void *dst, size_t dstsz, int value, size_t n)
 {
     if (!dst || n > dstsz) {
         SAFE_C_LOG_ERROR("safe_memset: invalid args dst=%p dstsz=%zu n=%zu",
@@ -407,8 +416,9 @@ safe_memset(void *dst, size_t dstsz, int value, size_t n)
 /*
     safe_memcpy: validates sizes
 */
-static inline int 
-safe_memcpy(void *dst, size_t dstsz, const void *src, size_t srcsz) {
+static inline int
+safe_memcpy(void *dst, size_t dstsz, const void *src, size_t srcsz)
+{
     if (!dst || !src || dstsz < srcsz) {
         SAFE_C_LOG_ERROR("safe_memcpy: invalid args dst=%p src=%p dstsz=%zu srcsz=%zu",
                          dst, src, dstsz, srcsz);
@@ -421,7 +431,9 @@ safe_memcpy(void *dst, size_t dstsz, const void *src, size_t srcsz) {
 /*
     safe_snprintf: truncation-aware wrapper
 */
-static inline int safe_snprintf(char *dst, size_t dstsz, const char *fmt, ...) {
+static inline int
+safe_snprintf(char *dst, size_t dstsz, const char *fmt, ...)
+{
     if (!dst || !fmt || dstsz == 0) {
         SAFE_C_LOG_ERROR("safe_snprintf: invalid args dst=%p fmt=%p dstsz=%zu",
                          (void*)dst, (const void*)fmt, dstsz);
@@ -443,7 +455,9 @@ static inline int safe_snprintf(char *dst, size_t dstsz, const char *fmt, ...) {
 }
 
 
-static inline int safe_bounds_check(size_t offset, size_t size, size_t buf_size) {
+static inline int
+safe_bounds_check(size_t offset, size_t size, size_t buf_size)
+{
     if (offset > buf_size) {
         SAFE_C_LOG_ERROR("safe_bounds_check: offset > buf_size (%zu > %zu)", offset, buf_size);
         return -1;
