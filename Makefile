@@ -1,7 +1,7 @@
 CC     = afl-clang-fast
 CFLAGS = -O3 -g -std=gnu17 -Wall \
        -fsanitize=address,undefined \
-       -D__AFL_HAVE_MANUAL_CONTROL 
+       -D__AFL_HAVE_MANUAL_CONTROL
 
 FUZZERS = \
     fuzz_safe_strings \
