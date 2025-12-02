@@ -118,6 +118,17 @@ static inline void safe_c_log_debug(const char *fmt, ...)
 #define SAFE_C_LOG_INFO(...)  safe_c_log_info(__VA_ARGS__)
 #define SAFE_C_LOG_DEBUG(...) safe_c_log_debug(__VA_ARGS__)
 
+static inline size_t
+safe_strnlen(const char *s, size_t maxlen)
+{
+    if (!s || maxlen == 0) {
+        return 0;
+    }
+    const char *end = memchr(s, '\0', maxlen);
+    return end ? (size_t)(end - s) : maxlen;
+}
+
+
 static inline bool
 safe_umul(size_t a, size_t b, size_t *result)
 {
@@ -280,16 +291,6 @@ safe_strncpy(char *dst, size_t dstsz, const char *src, size_t n)
     }
 
     return 0;
-}
-
-static inline size_t
-safe_strnlen(const char *s, size_t maxlen)
-{
-    if (!s || maxlen == 0) {
-        return 0;
-    }
-    const char *end = memchr(s, '\0', maxlen);
-    return end ? (size_t)(end - s) : maxlen;
 }
 
 static inline int
