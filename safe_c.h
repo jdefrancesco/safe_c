@@ -3,17 +3,6 @@
  * @file safe_c.h
  * @brief Defensive C utility helpers aligned with CERT C guidelines.
  *
- * This header centralizes overflow-aware allocation wrappers, string and memory
- * helpers, and lightweight logging primitives intended to make defensive coding
- * patterns ergonomic in C projects.  It exposes:
- * - Safe allocation utilities (`safe_malloc`, `safe_calloc`, `safe_realloc`) with
- *   multiplication overflow checks and zero-length guards.
- * - String helpers (`safe_strcpy`, `safe_strncpy`, `safe_strcat`, `safe_strnlen`,
- *   `safe_strdup`) that validate inputs and provide truncation diagnostics.
- * - Memory utilities (`safe_memset`, `safe_memcpy`) with explicit bounds checks.
- * - A truncation-aware `safe_snprintf` wrapper.
- * - A `safe_bounds_check` routine for offset/length validation.
- * - Logging macros with optional color highlighting and poison-aware free macros.
  *
  * @author J. DeFrancesco
  */
