@@ -5,6 +5,7 @@
 findings/
 corpus/
 
+fuzz_safe_*
 
 # Editor metadata
 .vscode-ctags
@@ -13,7 +14,9 @@ corpus/
 build/
 dist/
 findings/*
+findings
 findings_*/
+test_safe_*
 
 *.dSYM
 

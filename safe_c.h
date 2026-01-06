@@ -320,17 +320,20 @@ safe_strcpy(char *dst, size_t dstsz, const char *src)
     }
 
     size_t len = safe_strnlen(src, SAFE_C_MAX_STR);
+    int truncated = 0;
     if (len == SAFE_C_MAX_STR) {
+        truncated = 1;
         SAFE_C_LOG_WARN("safe_strcpy: src length >= SAFE_C_MAX_STR");
     }
 
-    if (len + 1 <= dstsz) {
+    if (!truncated && len + 1 <= dstsz) {
         memcpy(dst, src, len + 1);
         return 0;
     }
 
-    memcpy(dst, src, dstsz - 1);
-    dst[dstsz - 1] = '\0';
+    size_t copy_len = (len < dstsz) ? len : dstsz - 1;
+    memcpy(dst, src, copy_len);
+    dst[copy_len] = '\0';
     SAFE_C_LOG_WARN("safe_strcpy: truncated (src_len=%zu dstsz=%zu)", len, dstsz);
     return 1;
 }
@@ -413,15 +416,17 @@ safe_strcat(char *dst, size_t dstsz, const char *src)
 
     size_t avail = dstsz - dlen;      // >= 1 at this point
     size_t slen = safe_strnlen(src, SAFE_C_MAX_STR);
+    int truncated = 0;
     if (slen == SAFE_C_MAX_STR) {
+        truncated = 1;
         SAFE_C_LOG_WARN("safe_strcat: src length >= SAFE_C_MAX_STR");
     }
 
-    if (slen + 1 <= avail) {          // or: if (slen < avail)
+    if (!truncated && slen + 1 <= avail) {          // or: if (slen < avail)
         memcpy(dst + dlen, src, slen + 1);
         return 0;
     }
-    size_t copy_len = avail - 1;
+    size_t copy_len = (slen < avail) ? slen : avail - 1;
     memcpy(dst + dlen, src, copy_len);
     dst[dstsz - 1] = '\0';
     SAFE_C_LOG_WARN("safe_strcat: truncated (dlen=%zu slen=%zu dstsz=%zu)",
@@ -456,7 +461,8 @@ safe_strdup(const char *src)
     }
     char *p = safe_malloc(len + 1);
     if (!p) return NULL;
-    memcpy(p, src, len + 1);
+    memcpy(p, src, len);
+    p[len] = '\0';
     return p;
 }
 
