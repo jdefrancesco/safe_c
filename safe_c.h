@@ -17,6 +17,7 @@
 #include <stdarg.h>
 #include <errno.h>
 #include <stdbool.h>
+#include <sys/types.h>
 
 #ifndef SAFE_C_POISON_VALUE
     #define SAFE_C_POISON_VALUE 0xDEADBEEF
@@ -43,8 +44,7 @@
 #endif
 
 #if SAFE_C_ENABLE_POISON
-extern int safe_c_poison_sentinel_;
-#define SAFE_C_POISON_PTR ((void *)&safe_c_poison_sentinel_)
+    #define SAFE_C_POISON_PTR ((void *)(uintptr_t)(SAFE_C_POISON_VALUE))
 #endif
 
 #if SAFE_C_ENABLE_COLOR
@@ -62,7 +62,7 @@ extern int safe_c_poison_sentinel_;
 #endif
 
 static inline void
-safe_c_log_impl(const char *level, const char *color, const char *fmt, va_list ap)
+slog_impl(const char *level, const char *color, const char *fmt, va_list ap)
 {
 #if SAFE_C_ENABLE_LOGGING
     fprintf(stderr, "%s[safe_c][%s] ", color, level);
@@ -74,45 +74,92 @@ safe_c_log_impl(const char *level, const char *color, const char *fmt, va_list a
 }
 
 static inline void 
+slog_error(const char *fmt, ...)
+{
+    va_list ap; 
+    va_start(ap, fmt);
+    slog_impl("ERROR", SAFE_C_COLOR_RED, fmt, ap);
+    va_end(ap);
+}
+
+static inline void 
+slog_warn(const char *fmt, ...)
+{
+    va_list ap; 
+    va_start(ap, fmt);
+    slog_impl("WARN", SAFE_C_COLOR_YELLOW, fmt, ap);
+    va_end(ap);
+}
+
+static inline void 
+slog_info(const char *fmt, ...)
+{
+    va_list ap; 
+    va_start(ap, fmt);
+    slog_impl("INFO", SAFE_C_COLOR_GREEN, fmt, ap);
+    va_end(ap);
+}
+
+static inline void 
+slog_debug(const char *fmt, ...)
+{
+    va_list ap; 
+    va_start(ap, fmt);
+    slog_impl("DEBUG", SAFE_C_COLOR_BLUE, fmt, ap);
+    va_end(ap);
+}
+
+static inline void
+safe_c_log_impl(const char *level, const char *color, const char *fmt, va_list ap)
+{
+    slog_impl(level, color, fmt, ap);
+}
+
+static inline void
 safe_c_log_error(const char *fmt, ...)
 {
-    va_list ap; 
+    va_list ap;
     va_start(ap, fmt);
-    safe_c_log_impl("ERROR", SAFE_C_COLOR_RED, fmt, ap);
+    slog_impl("ERROR", SAFE_C_COLOR_RED, fmt, ap);
     va_end(ap);
 }
 
-static inline void 
+static inline void
 safe_c_log_warn(const char *fmt, ...)
 {
-    va_list ap; 
+    va_list ap;
     va_start(ap, fmt);
-    safe_c_log_impl("WARN", SAFE_C_COLOR_YELLOW, fmt, ap);
+    slog_impl("WARN", SAFE_C_COLOR_YELLOW, fmt, ap);
     va_end(ap);
 }
 
-static inline void 
+static inline void
 safe_c_log_info(const char *fmt, ...)
 {
-    va_list ap; 
+    va_list ap;
     va_start(ap, fmt);
-    safe_c_log_impl("INFO", SAFE_C_COLOR_GREEN, fmt, ap);
+    slog_impl("INFO", SAFE_C_COLOR_GREEN, fmt, ap);
     va_end(ap);
 }
 
-static inline void 
+static inline void
 safe_c_log_debug(const char *fmt, ...)
 {
-    va_list ap; 
+    va_list ap;
     va_start(ap, fmt);
-    safe_c_log_impl("DEBUG", SAFE_C_COLOR_BLUE, fmt, ap);
+    slog_impl("DEBUG", SAFE_C_COLOR_BLUE, fmt, ap);
     va_end(ap);
 }
 
-#define SAFE_C_LOG_ERROR(...) safe_c_log_error(__VA_ARGS__)
-#define SAFE_C_LOG_WARN(...)  safe_c_log_warn(__VA_ARGS__)
-#define SAFE_C_LOG_INFO(...)  safe_c_log_info(__VA_ARGS__)
-#define SAFE_C_LOG_DEBUG(...) safe_c_log_debug(__VA_ARGS__)
+#define SLOG_ERROR(...) slog_error(__VA_ARGS__)
+#define SLOG_WARN(...)  slog_warn(__VA_ARGS__)
+#define SLOG_INFO(...)  slog_info(__VA_ARGS__)
+#define SLOG_DEBUG(...) slog_debug(__VA_ARGS__)
+
+#define SAFE_C_LOG_ERROR(...) SLOG_ERROR(__VA_ARGS__)
+#define SAFE_C_LOG_WARN(...)  SLOG_WARN(__VA_ARGS__)
+#define SAFE_C_LOG_INFO(...)  SLOG_INFO(__VA_ARGS__)
+#define SAFE_C_LOG_DEBUG(...) SLOG_DEBUG(__VA_ARGS__)
 
 /**
  * @brief Computes the length of a string up to a maximum number of characters.
@@ -122,7 +169,7 @@ safe_c_log_debug(const char *fmt, ...)
  * @return The number of characters before the null terminator or @p maxlen if no null terminator is found.
  */
 static inline size_t
-safe_strnlen(const char *s, size_t maxlen)
+strsnlen(const char *s, size_t maxlen)
 {
     if (!s || maxlen == 0) {
         return 0;
@@ -131,6 +178,11 @@ safe_strnlen(const char *s, size_t maxlen)
     return end ? (size_t)(end - s) : maxlen;
 }
 
+static inline size_t
+safe_strnlen(const char *s, size_t maxlen)
+{
+    return strsnlen(s, maxlen);
+}
 
 /**
  * Safely multiplies two size_t values, reporting overflow.
@@ -145,10 +197,10 @@ safe_strnlen(const char *s, size_t maxlen)
  * @return true if the multiplication succeeds without overflow; otherwise false.
  */
 static inline bool
-safe_umul(size_t a, size_t b, size_t *result)
+sumul(size_t a, size_t b, size_t *result)
 {
     if (!result) {
-        SAFE_C_LOG_ERROR("safe_umul: result pointer is NULL");
+        SLOG_ERROR("sumul: result pointer is NULL");
         errno = EINVAL;
 #if SAFE_C_ABORT_ON_ERROR
         abort();
@@ -156,7 +208,7 @@ safe_umul(size_t a, size_t b, size_t *result)
         return false;
     }
     if (a != 0 && b > SIZE_MAX / a) {
-        SAFE_C_LOG_ERROR("safe_umul: overflow (%zu * %zu)", a, b);
+        SLOG_ERROR("sumul: overflow (%zu * %zu)", a, b);
         errno = EOVERFLOW;
 #if SAFE_C_ABORT_ON_ERROR
         abort();
@@ -165,6 +217,12 @@ safe_umul(size_t a, size_t b, size_t *result)
     }
     *result = a * b;
     return true;
+}
+
+static inline bool
+safe_umul(size_t a, size_t b, size_t *result)
+{
+    return sumul(a, b, result);
 }
 
 /**
@@ -177,28 +235,44 @@ safe_umul(size_t a, size_t b, size_t *result)
  * @return true if the multiplication results in an overflow; otherwise false.
  */
 static inline bool
-safe_mul_overflow(size_t a, size_t b, size_t *result)
+smul_overflow(size_t a, size_t b, size_t *result)
 {
-    return safe_umul(a, b, result);
+    return !sumul(a, b, result);
 }
 
-#define SAFE_FREE(ptr) do {          \
+static inline bool
+safe_mul_overflow(size_t a, size_t b, size_t *result)
+{
+    return smul_overflow(a, b, result);
+}
+
+#define sfree(ptr) do {              \
     if ((ptr) != NULL) {             \
         free(ptr);                   \
         (ptr) = NULL;                \
     }                                \
 } while (0)
 
-#define SAFE_FREE_POISON(ptr) do {                 \
-    if ((ptr) != NULL) {                           \
-        free(ptr);                                 \
-        if (SAFE_C_ENABLE_POISON) {                \
-            (ptr) = SAFE_C_POISON_PTR;             \
-        } else {                                   \
-            (ptr) = NULL;                          \
-        }                                          \
-    }                                              \
+#if SAFE_C_ENABLE_POISON
+#define sfree_poison(ptr) do {                    \
+    if ((ptr) != NULL) {                          \
+        if ((void *)(ptr) != SAFE_C_POISON_PTR) { \
+            free(ptr);                            \
+        }                                         \
+        (ptr) = SAFE_C_POISON_PTR;                \
+    }                                             \
 } while (0)
+#else
+#define sfree_poison(ptr) do {       \
+    if ((ptr) != NULL) {             \
+        free(ptr);                   \
+        (ptr) = NULL;                \
+    }                                \
+} while (0)
+#endif
+
+#define SAFE_FREE(ptr) sfree(ptr)
+#define SAFE_FREE_POISON(ptr) sfree_poison(ptr)
 
 /**
  * @brief Allocates memory with additional safety checks and logging.
@@ -213,10 +287,10 @@ safe_mul_overflow(size_t a, size_t b, size_t *result)
  * @return Pointer to the allocated memory on success, or @c NULL on failure.
  */
 static inline void *
-safe_malloc(size_t n)
+smalloc(size_t n)
 {
     if (n == 0) {
-        SAFE_C_LOG_WARN("safe_malloc: requested size 0");
+        SLOG_WARN("smalloc: requested size 0");
         errno = EINVAL;
 #if SAFE_C_ABORT_ON_ERROR
         abort();
@@ -225,9 +299,15 @@ safe_malloc(size_t n)
     }
     void *p = malloc(n);
     if (!p) {
-        SAFE_C_LOG_ERROR("safe_malloc: malloc(%zu) failed", n);
+        SLOG_ERROR("smalloc: malloc(%zu) failed", n);
     }
     return p;
+}
+
+static inline void *
+safe_malloc(size_t n)
+{
+    return smalloc(n);
 }
 
 /**
@@ -245,11 +325,11 @@ safe_malloc(size_t n)
  * @note When @c SAFE_C_ABORT_ON_ERROR is enabled, the process aborts on overflow.
  */
 static inline void *
-safe_calloc(size_t count, size_t size)
+scalloc(size_t count, size_t size)
 {
     size_t total;
-    if (safe_umul(count, size, &total) == false || total == 0) {
-        SAFE_C_LOG_ERROR("safe_calloc: overflow or zero (%zu * %zu)", count, size);
+    if (sumul(count, size, &total) == false || total == 0) {
+        SLOG_ERROR("scalloc: overflow or zero (%zu * %zu)", count, size);
         errno = EOVERFLOW;
 #if SAFE_C_ABORT_ON_ERROR
         abort();
@@ -258,9 +338,15 @@ safe_calloc(size_t count, size_t size)
     }
     void *p = calloc(count, size);
     if (!p) {
-        SAFE_C_LOG_ERROR("safe_calloc: calloc(%zu,%zu) failed", count, size);
+        SLOG_ERROR("scalloc: calloc(%zu,%zu) failed", count, size);
     }
     return p;
+}
+
+static inline void *
+safe_calloc(size_t count, size_t size)
+{
+    return scalloc(count, size);
 }
 
 /**
@@ -270,19 +356,19 @@ safe_calloc(size_t count, size_t size)
  * @p count elements of @p size bytes each, validating that the product
  * does not overflow and is non-zero before invoking realloc.
  *
- * @param ptr    Pointer to the existing allocation, or nullptr for a new allocation.
+ * @param ptr    Pointer to the existing allocation, or NULL for a new allocation.
  * @param count  Number of elements requested.
  * @param size   Size in bytes of each element.
  *
- * @return Pointer to the resized allocation on success, or nullptr if allocation
+ * @return Pointer to the resized allocation on success, or NULL if allocation
  *         fails or an invalid size is requested. On failure, errno is set to EOVERFLOW.
  */
 static inline void *
-safe_realloc(void *ptr, size_t count, size_t size)
+srealloc(void *ptr, size_t count, size_t size)
 {
     size_t total;
-    if (safe_umul(count, size, &total) == false || total == 0) {
-        SAFE_C_LOG_ERROR("safe_realloc: overflow or zero (%zu * %zu)", count, size);
+    if (sumul(count, size, &total) == false || total == 0) {
+        SLOG_ERROR("srealloc: overflow or zero (%zu * %zu)", count, size);
         errno = EOVERFLOW;
 #if SAFE_C_ABORT_ON_ERROR
         abort();
@@ -291,51 +377,84 @@ safe_realloc(void *ptr, size_t count, size_t size)
     }
     void *p = realloc(ptr, total);
     if (!p && total != 0) {
-        SAFE_C_LOG_ERROR("safe_realloc: realloc(%p, %zu) failed", ptr, total);
+        SLOG_ERROR("srealloc: realloc(%p, %zu) failed", ptr, total);
     }
     return p;
 }
 
+static inline void *
+safe_realloc(void *ptr, size_t count, size_t size)
+{
+    return srealloc(ptr, count, size);
+}
+
 /**
- * @brief Copies a source string into a destination buffer with bounds checking.
+ * @brief Copies a string like Linux strscpy, with SAFE_C_MAX_STR scan limiting.
  *
- * This function validates the input arguments, calculates the source length up to
- * SAFE_C_MAX_STR, and copies as much data as possible into the destination buffer.
- * It ensures the destination is null-terminated and logs warnings when the source
- * length exceeds SAFE_C_MAX_STR or when truncation occurs.
+ * Copies as much of @p src as fits in @p dst, always NUL-terminating when
+ * @p dstsz is nonzero. On success, returns the number of copied characters,
+ * excluding the terminator. If truncation occurs, returns -E2BIG. If the
+ * arguments are invalid, returns -EINVAL.
  *
  * @param dst    Destination buffer to receive the copied string.
- * @param dstsz  Size of the destination buffer in bytes.
  * @param src    Null-terminated source string to copy.
+ * @param dstsz  Size of the destination buffer in bytes.
  *
- * @return 0 on success, 1 if truncation occurs, and -1 for invalid input arguments.
+ * @return copied byte count on success, -E2BIG on truncation, or -EINVAL.
  */
+static inline ssize_t
+strscpy(char *dst, const char *src, size_t dstsz)
+{
+    if (!dst || !src) {
+        SLOG_ERROR("strscpy: invalid args dst=%p src=%p dstsz=%zu",
+                   (void *)dst, (const void *)src, dstsz);
+        errno = EINVAL;
+        return -EINVAL;
+    }
+
+    if (dstsz == 0) {
+        SLOG_WARN("strscpy: destination size is 0");
+        errno = E2BIG;
+        return -E2BIG;
+    }
+
+    size_t i = 0;
+    while (i < dstsz - 1 && i < SAFE_C_MAX_STR) {
+        dst[i] = src[i];
+        if (src[i] == '\0') {
+            return (ssize_t)i;
+        }
+        i++;
+    }
+
+    if (i < SAFE_C_MAX_STR && src[i] == '\0') {
+        dst[i] = '\0';
+        return (ssize_t)i;
+    }
+
+    dst[i] = '\0';
+    SLOG_WARN("strscpy: truncated (copied=%zu dstsz=%zu)", i, dstsz);
+    errno = E2BIG;
+    return -E2BIG;
+}
+
 static inline int
 safe_strcpy(char *dst, size_t dstsz, const char *src)
 {
     if (!dst || !src || dstsz == 0) {
-        SAFE_C_LOG_ERROR("safe_strcpy: invalid args dst=%p src=%p dstsz=%zu",
-                         (void*)dst, (const void*)src, dstsz);
+        SLOG_ERROR("safe_strcpy: invalid args dst=%p src=%p dstsz=%zu",
+                   (void *)dst, (const void *)src, dstsz);
         return -1;
     }
 
-    size_t len = safe_strnlen(src, SAFE_C_MAX_STR);
-    int truncated = 0;
-    if (len == SAFE_C_MAX_STR) {
-        truncated = 1;
-        SAFE_C_LOG_WARN("safe_strcpy: src length >= SAFE_C_MAX_STR");
-    }
-
-    if (!truncated && len + 1 <= dstsz) {
-        memcpy(dst, src, len + 1);
+    ssize_t rc = strscpy(dst, src, dstsz);
+    if (rc >= 0) {
         return 0;
     }
-
-    size_t copy_len = (len < dstsz) ? len : dstsz - 1;
-    memcpy(dst, src, copy_len);
-    dst[copy_len] = '\0';
-    SAFE_C_LOG_WARN("safe_strcpy: truncated (src_len=%zu dstsz=%zu)", len, dstsz);
-    return 1;
+    if (rc == -E2BIG) {
+        return 1;
+    }
+    return -1;
 }
 
 /**
@@ -343,7 +462,7 @@ safe_strcpy(char *dst, size_t dstsz, const char *src)
  *
  * Copies from @p src into @p dst ensuring the destination is always NUL-terminated when
  * @p dstsz is nonzero. The routine checks for invalid arguments, computes the bounded length
- * of the source via safe_strnlen, and logs errors or warnings through SAFE_C_LOG macros.
+ * of the source via strsnlen, and logs errors or warnings through SLOG macros.
  *
  * @param dst    Destination buffer that will receive the copied characters.
  * @param dstsz  Total size of the destination buffer in bytes.
@@ -353,15 +472,15 @@ safe_strcpy(char *dst, size_t dstsz, const char *src)
  * @return 0 on success, 1 if truncation occurred, or -1 on invalid arguments.
  */
 static inline int
-safe_strncpy(char *dst, size_t dstsz, const char *src, size_t n)
+strsncpy(char *dst, size_t dstsz, const char *src, size_t n)
 {
     if (!dst || !src || dstsz == 0) {
-        SAFE_C_LOG_ERROR("safe_strncpy: invalid args dst=%p src=%p dstsz=%zu",
-                         (void*)dst, (const void*)src, dstsz);
+        SLOG_ERROR("strsncpy: invalid args dst=%p src=%p dstsz=%zu",
+                   (void*)dst, (const void*)src, dstsz);
         return -1;
     }
 
-    size_t slen = safe_strnlen(src, n);
+    size_t slen = strsnlen(src, n);
     int truncated = 0;
 
     if (slen == n) {
@@ -380,12 +499,18 @@ safe_strncpy(char *dst, size_t dstsz, const char *src, size_t n)
     dst[copy_len] = '\0';
 
     if (truncated) {
-        SAFE_C_LOG_WARN("safe_strncpy: truncated (n=%zu slen=%zu dstsz=%zu)",
-                        n, slen, dstsz);
+        SLOG_WARN("strsncpy: truncated (n=%zu slen=%zu dstsz=%zu)",
+                  n, slen, dstsz);
         return 1;
     }
 
     return 0;
+}
+
+static inline int
+safe_strncpy(char *dst, size_t dstsz, const char *src, size_t n)
+{
+    return strsncpy(dst, dstsz, src, n);
 }
 
 /**
@@ -400,26 +525,26 @@ safe_strncpy(char *dst, size_t dstsz, const char *src, size_t n)
  *         are detected or the destination buffer is not properly terminated.
  */
 static inline int
-safe_strcat(char *dst, size_t dstsz, const char *src)
+strscat(char *dst, size_t dstsz, const char *src)
 {
     if (!dst || !src || dstsz == 0) {
-        SAFE_C_LOG_ERROR("safe_strcat: invalid args dst=%p src=%p dstsz=%zu",
-                         (void*)dst, (const void*)src, dstsz);
+        SLOG_ERROR("strscat: invalid args dst=%p src=%p dstsz=%zu",
+                   (void*)dst, (const void*)src, dstsz);
         return -1;
     }
 
-    size_t dlen = safe_strnlen(dst, dstsz);
+    size_t dlen = strsnlen(dst, dstsz);
     if (dlen >= dstsz) {
-        SAFE_C_LOG_ERROR("safe_strcat: dst not null terminated");
+        SLOG_ERROR("strscat: dst not null terminated");
         return -1;
     }
 
     size_t avail = dstsz - dlen;      // >= 1 at this point
-    size_t slen = safe_strnlen(src, SAFE_C_MAX_STR);
+    size_t slen = strsnlen(src, SAFE_C_MAX_STR);
     int truncated = 0;
     if (slen == SAFE_C_MAX_STR) {
         truncated = 1;
-        SAFE_C_LOG_WARN("safe_strcat: src length >= SAFE_C_MAX_STR");
+        SLOG_WARN("strscat: src length >= SAFE_C_MAX_STR");
     }
 
     if (!truncated && slen + 1 <= avail) {          // or: if (slen < avail)
@@ -428,42 +553,54 @@ safe_strcat(char *dst, size_t dstsz, const char *src)
     }
     size_t copy_len = (slen < avail) ? slen : avail - 1;
     memcpy(dst + dlen, src, copy_len);
-    dst[dstsz - 1] = '\0';
-    SAFE_C_LOG_WARN("safe_strcat: truncated (dlen=%zu slen=%zu dstsz=%zu)",
-                    dlen, slen, dstsz);
+    dst[dlen + copy_len] = '\0';
+    SLOG_WARN("strscat: truncated (dlen=%zu slen=%zu dstsz=%zu)",
+              dlen, slen, dstsz);
     return 1;
+}
+
+static inline int
+safe_strcat(char *dst, size_t dstsz, const char *src)
+{
+    return strscat(dst, dstsz, src);
 }
 
 /**
  * @brief Duplicates a C-string using safe memory utilities.
  *
  * Before copying, the source pointer is validated. If it is null, an error is
- * logged, errno is set to EINVAL, and nullptr is returned. The function uses
- * safe_strnlen to cap the length at SAFE_C_MAX_STR, logging a warning when the
- * source length reaches that limit. Memory is allocated via safe_malloc, and
+ * logged, errno is set to EINVAL, and NULL is returned. The function uses
+ * strsnlen to cap the length at SAFE_C_MAX_STR, logging a warning when the
+ * source length reaches that limit. Memory is allocated via smalloc, and
  * on success the null-terminated copy is returned; on allocation failure,
- * nullptr is returned.
+ * NULL is returned.
  *
  * @param src Pointer to the null-terminated string to duplicate.
- * @return Pointer to the duplicated string on success, or nullptr on failure.
+ * @return Pointer to the duplicated string on success, or NULL on failure.
  */
 static inline char *
-safe_strdup(const char *src)
+strsdup(const char *src)
 {
     if (!src) {
-        SAFE_C_LOG_ERROR("safe_strdup: src is NULL");
+        SLOG_ERROR("strsdup: src is NULL");
         errno = EINVAL;
         return NULL;
     }
-    size_t len = safe_strnlen(src, SAFE_C_MAX_STR);
+    size_t len = strsnlen(src, SAFE_C_MAX_STR);
     if (len == SAFE_C_MAX_STR) {
-        SAFE_C_LOG_WARN("safe_strdup: src length >= SAFE_C_MAX_STR");
+        SLOG_WARN("strsdup: src length >= SAFE_C_MAX_STR");
     }
-    char *p = safe_malloc(len + 1);
+    char *p = smalloc(len + 1);
     if (!p) return NULL;
     memcpy(p, src, len);
     p[len] = '\0';
     return p;
+}
+
+static inline char *
+safe_strdup(const char *src)
+{
+    return strsdup(src);
 }
 
 /**
@@ -480,11 +617,11 @@ safe_strdup(const char *src)
  * @return 0 on success, or -1 if the inputs are invalid.
  */
 static inline int
-safe_memset(void *dst, size_t dstsz, int value, size_t n)
+smemset(void *dst, size_t dstsz, int value, size_t n)
 {
     if (!dst || n > dstsz) {
-        SAFE_C_LOG_ERROR("safe_memset: invalid args dst=%p dstsz=%zu n=%zu",
-                         dst, dstsz, n);
+        SLOG_ERROR("smemset: invalid args dst=%p dstsz=%zu n=%zu",
+                   dst, dstsz, n);
         return -1;
     }
     unsigned char b = (unsigned char)value;
@@ -492,6 +629,11 @@ safe_memset(void *dst, size_t dstsz, int value, size_t n)
     return 0;
 }
 
+static inline int
+safe_memset(void *dst, size_t dstsz, int value, size_t n)
+{
+    return smemset(dst, dstsz, value, n);
+}
 
 /**
  * @brief Safely copies a block of memory from one location to another.
@@ -506,15 +648,21 @@ safe_memset(void *dst, size_t dstsz, int value, size_t n)
  * @return 0 on success, or -1 if the arguments are invalid (null pointers or insufficient space).
  */
 static inline int
-safe_memcpy(void *dst, size_t dstsz, const void *src, size_t srcsz)
+smemcpy(void *dst, size_t dstsz, const void *src, size_t srcsz)
 {
     if (!dst || !src || dstsz < srcsz) {
-        SAFE_C_LOG_ERROR("safe_memcpy: invalid args dst=%p src=%p dstsz=%zu srcsz=%zu",
-                         dst, src, dstsz, srcsz);
+        SLOG_ERROR("smemcpy: invalid args dst=%p src=%p dstsz=%zu srcsz=%zu",
+                   dst, src, dstsz, srcsz);
         return -1;
     }
     memcpy(dst, src, srcsz);
     return 0;
+}
+
+static inline int
+safe_memcpy(void *dst, size_t dstsz, const void *src, size_t srcsz)
+{
+    return smemcpy(dst, dstsz, src, srcsz);
 }
 
 /**
@@ -530,11 +678,11 @@ safe_memcpy(void *dst, size_t dstsz, const void *src, size_t srcsz)
  * @return 0 on success, 1 if the output was truncated, or -1 on invalid arguments or formatting failure.
  */
 static inline int
-safe_snprintf(char *dst, size_t dstsz, const char *fmt, ...)
+ssnprintf(char *dst, size_t dstsz, const char *fmt, ...)
 {
     if (!dst || !fmt || dstsz == 0) {
-        SAFE_C_LOG_ERROR("safe_snprintf: invalid args dst=%p fmt=%p dstsz=%zu",
-                         (void*)dst, (const void*)fmt, dstsz);
+        SLOG_ERROR("ssnprintf: invalid args dst=%p fmt=%p dstsz=%zu",
+                   (void*)dst, (const void*)fmt, dstsz);
         return -1;
     }
     va_list ap;
@@ -542,11 +690,34 @@ safe_snprintf(char *dst, size_t dstsz, const char *fmt, ...)
     int r = vsnprintf(dst, dstsz, fmt, ap);
     va_end(ap);
     if (r < 0) {
-        SAFE_C_LOG_ERROR("safe_snprintf: vsnprintf error");
+        SLOG_ERROR("ssnprintf: vsnprintf error");
         return -1;
     }
     if ((size_t)r >= dstsz) {
-        SAFE_C_LOG_WARN("safe_snprintf: truncated (needed=%d dstsz=%zu)", r, dstsz);
+        SLOG_WARN("ssnprintf: truncated (needed=%d dstsz=%zu)", r, dstsz);
+        return 1;
+    }
+    return 0;
+}
+
+static inline int
+safe_snprintf(char *dst, size_t dstsz, const char *fmt, ...)
+{
+    if (!dst || !fmt || dstsz == 0) {
+        SLOG_ERROR("safe_snprintf: invalid args dst=%p fmt=%p dstsz=%zu",
+                   (void*)dst, (const void*)fmt, dstsz);
+        return -1;
+    }
+    va_list ap;
+    va_start(ap, fmt);
+    int r = vsnprintf(dst, dstsz, fmt, ap);
+    va_end(ap);
+    if (r < 0) {
+        SLOG_ERROR("safe_snprintf: vsnprintf error");
+        return -1;
+    }
+    if ((size_t)r >= dstsz) {
+        SLOG_WARN("safe_snprintf: truncated (needed=%d dstsz=%zu)", r, dstsz);
         return 1;
     }
     return 0;
@@ -562,19 +733,25 @@ safe_snprintf(char *dst, size_t dstsz, const char *fmt, ...)
  *         if the requested range would overflow the buffer.
  */
 static inline int
-safe_bounds_check(size_t offset, size_t size, size_t buf_size)
+sbounds_check(size_t offset, size_t size, size_t buf_size)
 {
     if (offset > buf_size) {
-        SAFE_C_LOG_ERROR("safe_bounds_check: offset > buf_size (%zu > %zu)",
-                         offset, buf_size);
+        SLOG_ERROR("sbounds_check: offset > buf_size (%zu > %zu)",
+                   offset, buf_size);
         return -1;
     }
     if (size > buf_size - offset) {
-        SAFE_C_LOG_ERROR("safe_bounds_check: size too large (%zu offset=%zu buf_size=%zu)",
-                         size, offset, buf_size);
+        SLOG_ERROR("sbounds_check: size too large (%zu offset=%zu buf_size=%zu)",
+                   size, offset, buf_size);
         return -1;
     }
     return 0;
+}
+
+static inline int
+safe_bounds_check(size_t offset, size_t size, size_t buf_size)
+{
+    return sbounds_check(offset, size, buf_size);
 }
 
 #endif /* __SAFE_C_H */

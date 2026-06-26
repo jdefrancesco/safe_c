@@ -17,11 +17,11 @@ int main(void) {
         size_t dstsz = sizeof(dst);
 
         size_t to_copy = (size_t)n < dstsz ? (size_t)n : dstsz;
-        safe_memcpy(dst, dstsz, buf, to_copy);
+        smemcpy(dst, dstsz, buf, to_copy);
 
         if (n > 0) {
             size_t m = buf[0] % (dstsz + 1);
-            safe_memset(dst, dstsz, 0xAA, m);
+            smemset(dst, dstsz, 0xAA, m);
         }
     }
 

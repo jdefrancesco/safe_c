@@ -28,12 +28,12 @@ int main(void) {
         char dst2[32] = "X";
         char dst3[64] = "prefix";
 
-        safe_strcpy(dst1, sizeof(dst1), src);
-        safe_strcat(dst2, sizeof(dst2), src);
-        safe_strncpy(dst3, sizeof(dst3), src, len);
+        strscpy(dst1, src, sizeof(dst1));
+        strscat(dst2, sizeof(dst2), src);
+        strsncpy(dst3, sizeof(dst3), src, len);
 
-        char *dup = safe_strdup(src);
-        SAFE_FREE(dup);
+        char *dup = strsdup(src);
+        sfree(dup);
     }
     return 0;
 }

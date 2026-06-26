@@ -24,7 +24,7 @@ int main(void) {
         fmt[flen] = '\0';
 
         char outbuf[128];
-        safe_snprintf(outbuf, sizeof(outbuf), fmt, 123, 456, "test");
+        ssnprintf(outbuf, sizeof(outbuf), fmt, 123, 456, "test");
     }
 
     return 0;

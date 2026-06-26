@@ -18,12 +18,12 @@ int main(void) {
         if (a == 0) a = 1;
         if (b == 0) b = 1;
 
-        void *p1 = safe_malloc(a);
-        void *p2 = safe_calloc(a, b);
-        void *p3 = safe_realloc(p1, a, b);
+        void *p1 = smalloc(a);
+        void *p2 = scalloc(a, b);
+        void *p3 = srealloc(p1, a, b);
 
-        SAFE_FREE(p2);
-        SAFE_FREE(p3);
+        sfree(p2);
+        sfree(p3);
     }
     return 0;
 }

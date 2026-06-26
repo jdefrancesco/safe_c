@@ -17,7 +17,7 @@ int main(void) {
         size_t offset   = buf[1];
         size_t sz       = buf[2];
 
-        safe_bounds_check(offset, sz, buf_size);
+        sbounds_check(offset, sz, buf_size);
     }
 
     return 0;

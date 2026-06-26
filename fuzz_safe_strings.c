@@ -27,15 +27,15 @@ int main(void) {
         char buf1[128] = {0};
         char buf2[64]  = {0};
 
-        safe_strcpy(buf1, sizeof(buf1), stack_src);
-        safe_strncpy(buf2, sizeof(buf2), stack_src, copy_len);
-        safe_strcat(buf1, sizeof(buf1), buf2);
+        strscpy(buf1, stack_src, sizeof(buf1));
+        strsncpy(buf2, sizeof(buf2), stack_src, copy_len);
+        strscat(buf1, sizeof(buf1), buf2);
 
-        size_t len1 = safe_strnlen(buf1, sizeof(buf1));
+        size_t len1 = strsnlen(buf1, sizeof(buf1));
         (void)len1;
 
-        char *dup = safe_strdup(stack_src);
-        SAFE_FREE(dup);
+        char *dup = strsdup(stack_src);
+        sfree(dup);
     }
     return 0;
 }
