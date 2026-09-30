@@ -277,6 +277,7 @@ safe_mul_overflow(size_t a, size_t b, size_t *result)
  * observe a different index/side effect), which silently frees/nulls the
  * wrong slot instead of the one the caller intended.
  */
+// clang-format off
 #define sfree(ptr) do {                          \
     __typeof__(&(ptr)) sfree_pp__ = &(ptr);      \
     if (*sfree_pp__ != NULL) {                   \
@@ -304,6 +305,7 @@ safe_mul_overflow(size_t a, size_t b, size_t *result)
     }                                                \
 } while (0)
 #endif
+// clang-format on
 
 #define SAFE_FREE(ptr) sfree(ptr)
 #define SAFE_FREE_POISON(ptr) sfree_poison(ptr)

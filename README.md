@@ -281,8 +281,10 @@ int main(void) {
 void *scalloc(size_t count, size_t size);
 ```
 
-- Checks `count * size` for overflow and zero.
-- Calls `calloc` only when the product is valid.
+- Checks `count * size` for overflow; returns `NULL` (`errno = EOVERFLOW`) only in that case.
+- A zero-size request (`count == 0` or `size == 0`) is **not** an error: it
+  returns a valid, unique, non-NULL pointer to a minimal allocation, the same
+  way `malloc(0)`/`calloc(0,0)` commonly do.
 
 Example:
 
@@ -310,8 +312,15 @@ int main(void) {
 void *srealloc(void *ptr, size_t count, size_t size);
 ```
 
-- Computes `count * size` with overflow checking.
-- Behaves like `realloc` for valid, non-zero totals.
+- Computes `count * size` with overflow checking; returns `NULL`
+  (`errno = EOVERFLOW`) only if that overflows.
+- A zero-size request (`count == 0` or `size == 0`) is **not** an error: it
+  returns a valid, minimal allocation instead of `NULL`.
+- On any other failure (the underlying `realloc` itself fails), `ptr` is left
+  untouched and still valid, exactly like standard `realloc` — **don't**
+  overwrite your only pointer with the return value directly
+  (`ptr = srealloc(ptr, ...)`), or you'll leak `ptr`'s block if it fails. Use
+  a temporary, as in the example below.
 
 Example:
 
@@ -347,6 +356,9 @@ int main(void) {
 
 - `sfree(ptr)` frees and sets `ptr = NULL`.
 - `sfree_poison(ptr)` frees and sets `ptr` to a poison pointer (or `NULL` if poisoning disabled).
+- `ptr` is evaluated exactly once, so it's safe to pass an expression with a
+  side effect, e.g. `sfree(list[idx++])` — the macro won't check, free, and
+  null out three different elements.
 
 Example:
 

@@ -21,6 +21,7 @@ int main(void) {
         void *p1 = smalloc(a);
         void *p2 = scalloc(a, b);
         void *p3 = srealloc(p1, a, b);
+        if (!p3) sfree(p1); // realloc failed: p1 is still valid, must free it ourselves
 
         sfree(p2);
         sfree(p3);

@@ -28,7 +28,6 @@ BraceWrapping:
   SplitEmptyFunction: false
   SplitEmptyRecord: false
 AllowShortFunctionsOnASingleLine: None
-AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
 AllowShortBlocksOnASingleLine: Never
 IndentCaseLabels: true
