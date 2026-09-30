@@ -6,8 +6,8 @@
  * @author J. DeFrancesco
  */
 
-#ifndef __SAFE_C_H
-#define __SAFE_C_H
+#ifndef SAFE_C_H
+#define SAFE_C_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -47,6 +47,12 @@
     #define SAFE_C_POISON_PTR ((void *)(uintptr_t)(SAFE_C_POISON_VALUE))
 #endif
 
+#if defined(__GNUC__) || defined(__clang__)
+    #define SAFE_C_PRINTF_ATTR(fmt_idx, va_idx) __attribute__((format(printf, fmt_idx, va_idx)))
+#else
+    #define SAFE_C_PRINTF_ATTR(fmt_idx, va_idx)
+#endif
+
 #if SAFE_C_ENABLE_COLOR
     #define SAFE_C_COLOR_RED    "\033[31m"
     #define SAFE_C_COLOR_YELLOW "\033[33m"
@@ -61,6 +67,23 @@
     #define SAFE_C_COLOR_RESET  ""
 #endif
 
+/*
+ * Forward-declared with the printf format attribute so both GCC and Clang
+ * apply format-string/argument-type checking at every call site (GCC,
+ * unlike Clang, rejects the attribute when it is attached directly to a
+ * function definition, so it must appear on a separate prototype).
+ */
+static inline void slog_impl(const char *level, const char *color, const char *fmt, va_list ap) SAFE_C_PRINTF_ATTR(3, 0);
+static inline void slog_error(const char *fmt, ...) SAFE_C_PRINTF_ATTR(1, 2);
+static inline void slog_warn(const char *fmt, ...) SAFE_C_PRINTF_ATTR(1, 2);
+static inline void slog_info(const char *fmt, ...) SAFE_C_PRINTF_ATTR(1, 2);
+static inline void slog_debug(const char *fmt, ...) SAFE_C_PRINTF_ATTR(1, 2);
+static inline void safe_c_log_impl(const char *level, const char *color, const char *fmt, va_list ap) SAFE_C_PRINTF_ATTR(3, 0);
+static inline void safe_c_log_error(const char *fmt, ...) SAFE_C_PRINTF_ATTR(1, 2);
+static inline void safe_c_log_warn(const char *fmt, ...) SAFE_C_PRINTF_ATTR(1, 2);
+static inline void safe_c_log_info(const char *fmt, ...) SAFE_C_PRINTF_ATTR(1, 2);
+static inline void safe_c_log_debug(const char *fmt, ...) SAFE_C_PRINTF_ATTR(1, 2);
+
 static inline void
 slog_impl(const char *level, const char *color, const char *fmt, va_list ap)
 {
@@ -73,37 +96,37 @@ slog_impl(const char *level, const char *color, const char *fmt, va_list ap)
 #endif
 }
 
-static inline void 
+static inline void
 slog_error(const char *fmt, ...)
 {
-    va_list ap; 
+    va_list ap;
     va_start(ap, fmt);
     slog_impl("ERROR", SAFE_C_COLOR_RED, fmt, ap);
     va_end(ap);
 }
 
-static inline void 
+static inline void
 slog_warn(const char *fmt, ...)
 {
-    va_list ap; 
+    va_list ap;
     va_start(ap, fmt);
     slog_impl("WARN", SAFE_C_COLOR_YELLOW, fmt, ap);
     va_end(ap);
 }
 
-static inline void 
+static inline void
 slog_info(const char *fmt, ...)
 {
-    va_list ap; 
+    va_list ap;
     va_start(ap, fmt);
     slog_impl("INFO", SAFE_C_COLOR_GREEN, fmt, ap);
     va_end(ap);
 }
 
-static inline void 
+static inline void
 slog_debug(const char *fmt, ...)
 {
-    va_list ap; 
+    va_list ap;
     va_start(ap, fmt);
     slog_impl("DEBUG", SAFE_C_COLOR_BLUE, fmt, ap);
     va_end(ap);
@@ -246,28 +269,39 @@ safe_mul_overflow(size_t a, size_t b, size_t *result)
     return smul_overflow(a, b, result);
 }
 
-#define sfree(ptr) do {              \
-    if ((ptr) != NULL) {             \
-        free(ptr);                   \
-        (ptr) = NULL;                \
-    }                                \
+/*
+ * ptr is only ever evaluated once, via &(ptr): this is what lets sfree()
+ * be used safely with non-idempotent lvalues like arr[idx++]. Do not
+ * "simplify" this back to repeating (ptr) in the macro body -- that
+ * reintroduces multiple-evaluation of the argument (each occurrence can
+ * observe a different index/side effect), which silently frees/nulls the
+ * wrong slot instead of the one the caller intended.
+ */
+#define sfree(ptr) do {                          \
+    __typeof__(&(ptr)) sfree_pp__ = &(ptr);      \
+    if (*sfree_pp__ != NULL) {                   \
+        free(*sfree_pp__);                       \
+        *sfree_pp__ = NULL;                      \
+    }                                            \
 } while (0)
 
 #if SAFE_C_ENABLE_POISON
-#define sfree_poison(ptr) do {                    \
-    if ((ptr) != NULL) {                          \
-        if ((void *)(ptr) != SAFE_C_POISON_PTR) { \
-            free(ptr);                            \
-        }                                         \
-        (ptr) = SAFE_C_POISON_PTR;                \
-    }                                             \
+#define sfree_poison(ptr) do {                                 \
+    __typeof__(&(ptr)) sfree_pp__ = &(ptr);                     \
+    if (*sfree_pp__ != NULL) {                                  \
+        if ((void *)(*sfree_pp__) != SAFE_C_POISON_PTR) {       \
+            free(*sfree_pp__);                                  \
+        }                                                        \
+        *sfree_pp__ = SAFE_C_POISON_PTR;                         \
+    }                                                            \
 } while (0)
 #else
-#define sfree_poison(ptr) do {       \
-    if ((ptr) != NULL) {             \
-        free(ptr);                   \
-        (ptr) = NULL;                \
-    }                                \
+#define sfree_poison(ptr) do {                      \
+    __typeof__(&(ptr)) sfree_pp__ = &(ptr);          \
+    if (*sfree_pp__ != NULL) {                       \
+        free(*sfree_pp__);                           \
+        *sfree_pp__ = NULL;                          \
+    }                                                \
 } while (0)
 #endif
 
@@ -313,8 +347,11 @@ safe_malloc(size_t n)
 /**
  * @brief Allocates zero-initialized memory for an array with overflow checking.
  *
- * This helper verifies that multiplying @p count by @p size does not overflow and
- * that the resulting total is non-zero before calling `calloc`.
+ * This helper verifies that multiplying @p count by @p size does not overflow
+ * before calling `calloc`. A zero-size request (count == 0 or size == 0) is
+ * not an error: it is treated like malloc(0)/calloc(0,0) commonly are and
+ * yields a valid, unique, non-NULL pointer to a minimal allocation rather
+ * than being conflated with an overflow failure.
  *
  * @param count Number of elements to allocate.
  * @param size  Size of each element in bytes.
@@ -328,15 +365,18 @@ static inline void *
 scalloc(size_t count, size_t size)
 {
     size_t total;
-    if (sumul(count, size, &total) == false || total == 0) {
-        SLOG_ERROR("scalloc: overflow or zero (%zu * %zu)", count, size);
+    if (sumul(count, size, &total) == false) {
+        SLOG_ERROR("scalloc: overflow (%zu * %zu)", count, size);
         errno = EOVERFLOW;
 #if SAFE_C_ABORT_ON_ERROR
         abort();
 #endif
         return NULL;
     }
-    void *p = calloc(count, size);
+    if (total == 0) {
+        total = 1;
+    }
+    void *p = calloc(1, total);
     if (!p) {
         SLOG_ERROR("scalloc: calloc(%zu,%zu) failed", count, size);
     }
@@ -360,23 +400,30 @@ safe_calloc(size_t count, size_t size)
  * @param count  Number of elements requested.
  * @param size   Size in bytes of each element.
  *
- * @return Pointer to the resized allocation on success, or NULL if allocation
- *         fails or an invalid size is requested. On failure, errno is set to EOVERFLOW.
+ * @return Pointer to the resized allocation on success, or NULL if the
+ *         count*size multiplication overflows or the underlying realloc
+ *         fails. On failure, errno is set to EOVERFLOW and @p ptr is left
+ *         untouched and still valid (standard realloc-failure semantics).
+ *         A zero-size request (count == 0 or size == 0) is not treated as
+ *         an error; it yields a minimal, valid, non-NULL allocation.
  */
 static inline void *
 srealloc(void *ptr, size_t count, size_t size)
 {
     size_t total;
-    if (sumul(count, size, &total) == false || total == 0) {
-        SLOG_ERROR("srealloc: overflow or zero (%zu * %zu)", count, size);
+    if (sumul(count, size, &total) == false) {
+        SLOG_ERROR("srealloc: overflow (%zu * %zu)", count, size);
         errno = EOVERFLOW;
 #if SAFE_C_ABORT_ON_ERROR
         abort();
 #endif
         return NULL;
     }
+    if (total == 0) {
+        total = 1;
+    }
     void *p = realloc(ptr, total);
-    if (!p && total != 0) {
+    if (!p) {
         SLOG_ERROR("srealloc: realloc(%p, %zu) failed", ptr, total);
     }
     return p;
@@ -677,6 +724,8 @@ safe_memcpy(void *dst, size_t dstsz, const void *src, size_t srcsz)
  *
  * @return 0 on success, 1 if the output was truncated, or -1 on invalid arguments or formatting failure.
  */
+static inline int ssnprintf(char *dst, size_t dstsz, const char *fmt, ...) SAFE_C_PRINTF_ATTR(3, 4);
+
 static inline int
 ssnprintf(char *dst, size_t dstsz, const char *fmt, ...)
 {
@@ -699,6 +748,8 @@ ssnprintf(char *dst, size_t dstsz, const char *fmt, ...)
     }
     return 0;
 }
+
+static inline int safe_snprintf(char *dst, size_t dstsz, const char *fmt, ...) SAFE_C_PRINTF_ATTR(3, 4);
 
 static inline int
 safe_snprintf(char *dst, size_t dstsz, const char *fmt, ...)
@@ -754,4 +805,4 @@ safe_bounds_check(size_t offset, size_t size, size_t buf_size)
     return sbounds_check(offset, size, buf_size);
 }
 
-#endif /* __SAFE_C_H */
+#endif /* SAFE_C_H */
